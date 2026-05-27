@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Atria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Cinzel:wght@400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#c8bc98;--pa:#ead8b0;--pa2:#d8cc9c;--pa3:#c8bc88;
+  --ink:#16120a;--i2:#3a2e1a;--i3:#786850;
+  --c1:#cc9018;--c2:#986808;--c3:#5c3c06;
+  --l1:#6a3c1e;--l2:#4a2a10;--l3:#2e1a08;--lh:#8a5030;
+  --ru:rgba(70,55,28,0.2);
+  --mo:'DM Mono',monospace;--se:'Cormorant Garamond',Georgia,serif;--di:'Cinzel',serif
+}
+body{background:var(--bg);font-family:var(--se);color:var(--ink);min-height:100vh;font-size:17px;line-height:1.75}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.admin-only{display:none !important}
+body.admin .admin-only{display:inline-flex !important}
+body.admin .admin-only.blk{display:block !important}
+body.admin .admin-only.flx{display:flex !important}
+
+#loading-screen{position:fixed;inset:0;background:var(--pa);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;z-index:9999;transition:opacity 0.4s}
+#loading-screen.hidden{opacity:0;pointer-events:none}
+#loading-screen .ls-title{font-family:var(--di);font-size:2.5rem;letter-spacing:0.5em;text-indent:0.5em;color:#0e0c04}
+#loading-screen .ls-sub{font-family:var(--mo);font-size:11px;color:var(--i3);letter-spacing:0.1em;text-transform:uppercase}
+.spinner{width:24px;height:24px;border:2px solid rgba(100,80,40,0.2);border-top-color:var(--c2);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#admin-bar{background:rgba(46,32,8,0.92);color:#c8a84a;font-family:var(--mo);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:5px 1.4rem;display:none;align-items:center;gap:10px}
+body.admin #admin-bar{display:flex}
+#admin-bar span{flex:1}
+#admin-bar button{background:none;border:none;color:#c8a84a;font-family:var(--mo);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;text-decoration:underline;text-underline-offset:2px;padding:0;min-height:32px}
+
+#hero{background:var(--pa);padding:2.5rem 1.5rem 0;text-align:center;border-bottom:1px solid rgba(100,80,40,0.15)}
+#sn{font-family:var(--di);font-size:clamp(2.8rem,10vw,5rem);font-weight:400;letter-spacing:0.5em;text-indent:0.5em;color:#0e0c04;line-height:1}
+#csw{display:block;margin:1rem auto 0;width:min(340px,85vw);height:42px;overflow:visible}
+
+#tb{background:var(--pa2);border-bottom:1px solid rgba(100,80,40,0.22);padding:0.65rem 1.2rem;display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap}
+#sw{position:relative;flex:1;min-width:140px}
+#sw i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--i3);font-size:15px;pointer-events:none}
+#srch{width:100%;padding:8px 12px 8px 32px;font-family:var(--se);font-size:15px;background:rgba(255,255,255,0.32);border:1px solid rgba(100,80,40,0.3);border-radius:3px;color:var(--ink);outline:none}
+#srch:focus{background:rgba(255,255,255,0.52);border-color:var(--c2)}
+.btn{font-family:var(--di);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:8px 14px;border-radius:3px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border:1px solid rgba(70,50,20,0.45);background:var(--pa3);color:var(--i2);min-height:36px;touch-action:manipulation}
+.btn:hover{background:var(--pa2)}
+.acc{background:var(--c3);color:#f0e0a0;border-color:#3c2604}
+.acc:hover{background:var(--c2)}
+.dan{color:#7a1e10;border-color:rgba(120,30,16,0.3);background:transparent}
+.dan:hover{background:rgba(120,30,16,0.08)}
+#snote{font-family:var(--mo);font-size:11px;color:var(--i3);padding:3px 1.2rem;letter-spacing:0.04em;min-height:20px}
+
+.view{display:none}
+.view.on{display:block}
+.anim{animation:si 0.45s cubic-bezier(0.16,1,0.3,1) both}
+@keyframes si{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+.lv{padding:1.5rem 1.2rem 4rem}
+.cb{margin-bottom:1.6rem}
+
+.np{display:flex;align-items:center;gap:1rem;cursor:pointer;user-select:none;padding:0.75rem 1rem;background:linear-gradient(180deg,#d2caba 0%,#bab29e 40%,#c6bea8 70%,#aca496 100%);border:1px solid;border-color:#dcd2be #bab29e #9e9680 #cec6b0;border-radius:3px;box-shadow:0 2px 5px rgba(0,0,0,0.18),inset 0 1px 0 rgba(255,255,240,0.3);position:relative;min-height:48px}
+.np::before{content:'';position:absolute;inset:3px;border:1px solid rgba(155,145,115,0.35);border-radius:2px;pointer-events:none}
+.np:hover{box-shadow:0 3px 8px rgba(0,0,0,0.22),inset 0 1px 0 rgba(255,255,240,0.3)}
+.cn{font-family:var(--di);font-size:clamp(0.62rem,2vw,0.72rem);letter-spacing:0.2em;text-transform:uppercase;color:#141008;font-weight:500;flex:1}
+.cc{font-family:var(--mo);font-size:10px;color:#565030;letter-spacing:0.05em}
+.cv{color:#565030;font-size:13px;transition:transform 0.25s}
+.cv.op{transform:rotate(90deg)}
+.bw{overflow:hidden;max-height:0;transition:max-height 0.45s cubic-bezier(0.16,1,0.3,1),opacity 0.35s;opacity:0}
+.bw.op{max-height:2000px;opacity:1}
+.bg{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;padding:1rem 0.1rem 0.3rem}
+.bk{cursor:pointer;height:148px;border-radius:2px 6px 6px 2px;position:relative;display:flex;align-items:center;justify-content:center;padding:10px 8px 10px 14px;background:linear-gradient(140deg,var(--lh) 0%,var(--l1) 28%,var(--l2) 65%,var(--l3) 100%);box-shadow:-4px 0 0 rgba(0,0,0,0.42),2px 3px 10px rgba(0,0,0,0.3);transition:transform 0.22s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.22s;transform-origin:left center;overflow:hidden;touch-action:manipulation}
+.bk::before{content:'';position:absolute;left:0;top:0;bottom:0;width:12px;border-radius:2px 0 0 2px;background:linear-gradient(180deg,rgba(0,0,0,0.52) 0%,rgba(190,120,40,0.1) 50%,rgba(0,0,0,0.52) 100%);border-right:1px solid rgba(0,0,0,0.3)}
+.bk::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0,transparent 5px,rgba(0,0,0,0.022) 5px,rgba(0,0,0,0.022) 6px);pointer-events:none}
+.bk:hover,.bk:active{transform:translateX(5px) scale(1.04);box-shadow:-5px 0 0 rgba(0,0,0,0.48),8px 6px 18px rgba(0,0,0,0.38)}
+.bk.dr{background:linear-gradient(140deg,#58504a 0%,#403830 40%,#2c2418 100%);opacity:0.72}
+.bt{font-family:var(--se);font-size:12.5px;font-weight:500;color:#f0ddb0;text-align:center;line-height:1.45;letter-spacing:0.03em;text-shadow:0 1px 3px rgba(0,0,0,0.6);position:relative;z-index:1}
+.bk.dr .bt{color:#b0a078}
+.dtag{position:absolute;top:7px;right:-14px;background:rgba(46,32,8,0.85);color:#a89050;font-family:var(--mo);font-size:8px;letter-spacing:0.07em;text-transform:uppercase;padding:2px 18px;transform:rotate(35deg)}
+.ba{height:148px;border-radius:2px 6px 6px 2px;border:1px dashed rgba(90,70,30,0.3);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--i3);gap:5px;font-family:var(--di);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;transition:border-color 0.15s,background 0.15s;touch-action:manipulation}
+.ba:hover,.ba:active{border-color:var(--c2);background:rgba(150,104,8,0.06);color:var(--c2)}
+
+.rv,.ev{padding:1.5rem 1.2rem 4rem;max-width:680px;margin:0 auto}
+.bb{display:inline-flex;align-items:center;gap:6px;font-family:var(--di);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--i3);cursor:pointer;margin-bottom:1.6rem;background:none;border:none;padding:4px 0;min-height:36px;touch-action:manipulation}
+.bb:hover{color:var(--i2)}
+.et{font-family:var(--di);font-size:clamp(1.2rem,4vw,1.55rem);letter-spacing:0.07em;color:var(--ink);line-height:1.2;margin-bottom:0.4rem}
+.em{font-family:var(--mo);font-size:11px;color:var(--i3);letter-spacing:0.04em;margin-bottom:1.8rem;padding-bottom:1.4rem;border-bottom:1px solid var(--ru)}
+.eb{font-size:1.05rem;line-height:1.85;color:var(--i2)}
+.eb p{margin-bottom:1em}
+.eb img{max-width:100%;height:auto;border-radius:3px}
+.ract{margin-top:1.8rem;padding-top:1.4rem;border-top:1px solid var(--ru);display:flex;gap:8px}
+
+.ehead{display:flex;align-items:center;gap:8px;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--ru);flex-wrap:wrap}
+.ehl{font-family:var(--mo);font-size:11px;color:var(--i3);letter-spacing:0.06em;text-transform:uppercase;flex:1;min-width:80px}
+.elbl{font-family:var(--mo);font-size:10px;color:var(--i3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;display:block}
+.ef{font-family:var(--se);font-size:15px;padding:8px 10px;background:rgba(255,255,255,0.32);border:1px solid rgba(100,80,40,0.28);border-radius:3px;color:var(--ink);width:100%;outline:none;margin-bottom:1rem}
+.ef:focus{background:rgba(255,255,255,0.52);border-color:var(--c2)}
+.efoot{display:flex;align-items:center;gap:8px;margin-top:1rem;flex-wrap:wrap}
+.ets{font-family:var(--mo);font-size:10px;color:var(--i3);flex:1}
+.eas{font-family:var(--mo);font-size:10px;color:var(--c2)}
+
+#rte-wrap{border:1px solid rgba(100,80,40,0.28);border-radius:3px;overflow:hidden;margin-bottom:1rem}
+#rte-toolbar{background:rgba(255,255,255,0.22);border-bottom:1px solid rgba(100,80,40,0.2);padding:5px 6px;display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+.t-btn{background:none;border:none;cursor:pointer;color:var(--i2);padding:5px 6px;border-radius:3px;font-size:15px;line-height:1;display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;touch-action:manipulation}
+.t-btn:hover,.t-btn.active{background:rgba(100,80,40,0.15);color:var(--ink)}
+.t-sep{width:1px;background:rgba(100,80,40,0.2);height:20px;margin:0 2px;flex-shrink:0}
+.t-sel{font-family:var(--se);font-size:13px;padding:4px 5px;background:rgba(255,255,255,0.3);border:1px solid rgba(100,80,40,0.22);border-radius:3px;color:var(--ink);outline:none;cursor:pointer;max-width:110px}
+.t-color-wrap{position:relative;display:inline-flex;align-items:center}
+.t-color-btn{min-width:32px;min-height:32px;border-radius:3px;border:1px solid rgba(100,80,40,0.3);cursor:pointer;overflow:hidden;padding:4px 5px;background:rgba(255,255,255,0.3);display:flex;flex-direction:column;align-items:center;gap:1px;position:relative}
+.t-color-btn input[type=color]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:none;padding:0}
+.t-color-swatch{width:14px;height:4px;border-radius:1px;pointer-events:none}
+#rte{min-height:240px;padding:14px;font-family:var(--se);font-size:1rem;line-height:1.8;color:var(--ink);background:rgba(255,255,255,0.28);outline:none;word-break:break-word;-webkit-user-select:text;user-select:text}
+#rte:focus{background:rgba(255,255,255,0.45)}
+#rte img{max-width:100%;height:auto;cursor:pointer;border-radius:3px;display:block;margin:8px 0}
+#rte img.selected{outline:2px solid var(--c1);outline-offset:2px}
+
+#img-panel{display:none;position:fixed;z-index:700;background:var(--pa);border:1px solid rgba(100,80,40,0.3);border-radius:5px;box-shadow:0 6px 20px rgba(0,0,0,0.25);padding:10px 12px;min-width:200px}
+#img-panel.on{display:block}
+.ip-label{font-family:var(--mo);font-size:10px;color:var(--i3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px}
+#img-width-slider{width:100%;margin-bottom:8px;accent-color:var(--c2)}
+.ip-row{display:flex;gap:6px;align-items:center;font-family:var(--mo);font-size:11px;color:var(--i3)}
+.ip-row input{width:58px;font-family:var(--mo);font-size:12px;padding:3px 6px;border:1px solid rgba(100,80,40,0.25);border-radius:3px;background:rgba(255,255,255,0.4);color:var(--ink);outline:none}
+.ip-close{background:none;border:none;cursor:pointer;color:var(--i3);font-size:16px;padding:0;margin-left:auto;display:block}
+
+.ncf{background:rgba(255,255,255,0.22);border:1px solid rgba(100,80,40,0.2);border-radius:4px;padding:0.9rem 1rem;margin-bottom:1.4rem;display:none}
+.ncf.on{display:block}
+.ncrow{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.ncrow .ef{margin-bottom:0;flex:1;min-width:120px}
+
+.ctxmenu{position:fixed;background:var(--pa);border:1px solid rgba(100,80,40,0.3);border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,0.25);z-index:600;display:none;min-width:180px;overflow:hidden}
+.ctxmenu.on{display:block}
+.ctxitem{padding:11px 14px;font-family:var(--se);font-size:14px;color:var(--i2);cursor:pointer;user-select:none;touch-action:manipulation}
+.ctxitem:hover,.ctxitem:active{background:rgba(100,80,40,0.12)}
+.ctxitem.danger{color:#8a1f10}
+.ctxitem.danger:hover,.ctxitem.danger:active{background:rgba(138,31,16,0.12)}
+
+.modal-bg{position:fixed;inset:0;background:rgba(30,20,10,0.5);z-index:500;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-bg.on{display:flex}
+.modal-pan{background:var(--pa);border:1px solid rgba(100,80,40,0.3);border-radius:6px;padding:1.6rem;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35)}
+.modal-head{font-family:var(--di);font-size:1.05rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.6rem;color:var(--ink)}
+.modal-sub{font-size:0.95rem;color:var(--i3);margin-bottom:1.3rem;line-height:1.5}
+.modal-text{font-size:1rem;color:var(--i2);margin-bottom:1.8rem;line-height:1.6}
+.modal-row{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.mbtn{font-family:var(--di);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:9px 16px;border-radius:3px;cursor:pointer;border:1px solid;background:transparent;color:var(--i2);border-color:rgba(70,50,20,0.45);min-height:38px;touch-action:manipulation}
+.mbtn:hover{background:rgba(70,50,20,0.08)}
+.mbtn-acc{background:var(--c3);color:#f0e0a0;border-color:#3c2604}
+.mbtn-acc:hover{background:var(--c2)}
+.mbtn-danger{background:#8a1f10;color:#f0d8b0;border-color:#8a1f10}
+.mbtn-danger:hover{background:#6a1408}
+#login-err{font-family:var(--mo);font-size:11px;color:#8a1f10;margin-top:6px;min-height:16px;letter-spacing:0.04em}
+.hl{background:#e8d060;border-radius:2px;padding:0 1px}
+#sync-note{font-family:var(--mo);font-size:9px;color:var(--i3);letter-spacing:0.06em;padding:2px 1.2rem;min-height:16px;text-align:right}
+
+@media(max-width:520px){
+  .rv,.ev,.lv{padding:1.2rem 0.9rem 3rem}
+  .bg{grid-template-columns:repeat(auto-fill,minmax(95px,1fr));gap:8px}
+  .bk,.ba{height:130px}
+  .btn{padding:7px 10px;font-size:9px}
+  #tb{gap:5px;padding:0.6rem 0.9rem}
+  .modal-pan{padding:1.2rem}
+  #rte-toolbar{gap:2px}
+  .t-sel{max-width:80px;font-size:12px}
+  .ehead{gap:6px}
+  .ehead .btn{padding:6px 8px;font-size:9px}
+  #rte{min-height:200px;padding:10px;font-size:0.95rem}
+}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="ls-title">Atria</div>
+  <div class="spinner"></div>
+  <div class="ls-sub">Loading…</div>
+</div>
+
+<div id="admin-bar">
+  <span>Admin mode · session only</span>
+  <button onclick="logout()">Sign out</button>
+</div>
+
+<div id="hero">
+  <div id="sn">Atria</div>
+  <svg id="csw" viewBox="0 0 340 42" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="cg" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#f0c840"/><stop offset="18%" stop-color="#d09820"/>
+        <stop offset="55%" stop-color="#986008"/><stop offset="82%" stop-color="#bc8820"/>
+        <stop offset="100%" stop-color="#6a4208"/>
+      </linearGradient>
+      <filter id="sf"><feDropShadow dx="0" dy="2.5" stdDeviation="1.8" flood-color="#3a2004" flood-opacity="0.42"/></filter>
+    </defs>
+    <path d="M26,28 C20,35 10,33 6,24 C2,15 8,5 18,5 C28,5 36,12 34,20 C110,28 230,28 306,20 C304,12 312,5 322,5 C332,5 338,15 334,24 C330,33 320,35 314,28" fill="none" stroke="#3a2004" stroke-width="13" stroke-linecap="round" opacity="0.3"/>
+    <path d="M26,28 C20,35 10,33 6,24 C2,15 8,5 18,5 C28,5 36,12 34,20 C110,28 230,28 306,20 C304,12 312,5 322,5 C332,5 338,15 334,24 C330,33 320,35 314,28" fill="none" stroke="url(#cg)" stroke-width="10" stroke-linecap="round" filter="url(#sf)"/>
+    <path d="M26,28 C20,35 10,33 6,24 C2,15 8,5 18,5 C28,5 36,12 34,20 C110,28 230,28 306,20 C304,12 312,5 322,5 C332,5 338,15 334,24 C330,33 320,35 314,28" fill="none" stroke="rgba(255,248,190,0.5)" stroke-width="2.5" stroke-linecap="round"/>
+  </svg>
+  <div style="height:1.4rem"></div>
+</div>
+
+<div id="tb">
+  <div id="sw"><i class="ti ti-search"></i><input type="text" id="srch" placeholder="Search subjects…" autocomplete="off"></div>
+  <button class="btn admin-only" onclick="toggleNCF()"><i class="ti ti-folder-plus"></i> New category</button>
+  <button class="btn acc admin-only" onclick="goEdit(null,null)"><i class="ti ti-pencil"></i> New entry</button>
+</div>
+<div id="snote">&nbsp;</div>
+<div id="sync-note">&nbsp;</div>
+
+<div id="view-list" class="view on">
+  <div class="lv">
+    <div id="ncf" class="ncf admin-only blk">
+      <span class="elbl">New category</span>
+      <div class="ncrow">
+        <input type="text" id="ncin" class="ef" placeholder="Name…" maxlength="80">
+        <button class="btn acc" onclick="confirmNC()"><i class="ti ti-check"></i> Create</button>
+        <button class="btn" onclick="closeNCF()">Cancel</button>
+      </div>
+    </div>
+    <div id="cw"></div>
+  </div>
+</div>
+
+<div id="view-read" class="view">
+  <div class="rv anim">
+    <button class="bb" onclick="goList()"><i class="ti ti-arrow-left" style="font-size:14px"></i> Back</button>
+    <div id="rt"></div>
+    <div id="rm"></div>
+    <div id="rb" class="eb"></div>
+    <div class="ract admin-only flx">
+      <button class="btn" onclick="editCur()"><i class="ti ti-edit"></i> Edit</button>
+      <button class="btn dan" onclick="delCur()"><i class="ti ti-trash"></i> Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="view-edit" class="view">
+  <div class="ev anim">
+    <div class="ehead">
+      <div id="ehl" class="ehl">New entry</div>
+      <button class="btn" onclick="saveDraft()" style="font-size:9px;padding:6px 10px"><i class="ti ti-device-floppy"></i> Draft</button>
+      <button class="btn acc" onclick="publish()" style="font-size:9px;padding:6px 10px"><i class="ti ti-check"></i> Publish</button>
+      <button class="btn" onclick="closeEd()" style="font-size:9px;padding:6px 9px"><i class="ti ti-x"></i></button>
+    </div>
+    <div>
+      <span class="elbl">Category</span>
+      <select id="ecsel" class="ef" onchange="onCC()" style="appearance:auto;cursor:pointer"></select>
+      <input type="text" id="ecnew" class="ef" placeholder="New category name…" style="display:none;margin-top:-0.5rem">
+    </div>
+    <div>
+      <span class="elbl">Subject</span>
+      <input type="text" id="esubj" class="ef" placeholder="What is this about?">
+    </div>
+    <div>
+      <span class="elbl">Content</span>
+      <div id="rte-wrap">
+        <div id="rte-toolbar">
+          <button class="t-btn" onmousedown="e=>e.preventDefault()" onclick="fmt('bold')" title="Bold"><i class="ti ti-bold"></i></button>
+          <button class="t-btn" onclick="fmt('italic')" title="Italic"><i class="ti ti-italic"></i></button>
+          <button class="t-btn" onclick="fmt('underline')" title="Underline"><i class="ti ti-underline"></i></button>
+          <button class="t-btn" onclick="fmt('strikeThrough')" title="Strikethrough"><i class="ti ti-strikethrough"></i></button>
+          <div class="t-sep"></div>
+          <select class="t-sel" id="fnt-sel" onchange="setFont(this.value)" title="Font">
+            <option value="Cormorant Garamond,Georgia,serif">Cormorant</option>
+            <option value="Cinzel,serif">Cinzel</option>
+            <option value="Georgia,serif">Georgia</option>
+            <option value="DM Mono,monospace">Mono</option>
+            <option value="Arial,sans-serif">Arial</option>
+            <option value="Times New Roman,serif">Times</option>
+          </select>
+          <select class="t-sel" id="fsz-sel" onchange="setSize(this.value)" title="Size" style="max-width:68px">
+            <option value="1">10px</option>
+            <option value="2">12px</option>
+            <option value="3" selected>15px</option>
+            <option value="4">18px</option>
+            <option value="5">22px</option>
+            <option value="6">28px</option>
+            <option value="7">36px</option>
+          </select>
+          <div class="t-sep"></div>
+          <div class="t-color-wrap" title="Text color">
+            <div class="t-color-btn">
+              <i class="ti ti-letter-a" style="font-size:13px;line-height:1"></i>
+              <div class="t-color-swatch" id="fg-swatch" style="background:#16120a"></div>
+              <input type="color" id="fg-color" value="#16120a" oninput="setFgColor(this.value)">
+            </div>
+          </div>
+          <div class="t-color-wrap" title="Highlight">
+            <div class="t-color-btn">
+              <i class="ti ti-highlight" style="font-size:13px;line-height:1"></i>
+              <div class="t-color-swatch" id="bg-swatch" style="background:#fffde0"></div>
+              <input type="color" id="bg-color" value="#fffde0" oninput="setBgColor(this.value)">
+            </div>
+          </div>
+          <div class="t-sep"></div>
+          <button class="t-btn" onclick="fmt('justifyLeft')" title="Left"><i class="ti ti-align-left"></i></button>
+          <button class="t-btn" onclick="fmt('justifyCenter')" title="Center"><i class="ti ti-align-center"></i></button>
+          <button class="t-btn" onclick="fmt('justifyRight')" title="Right"><i class="ti ti-align-right"></i></button>
+          <div class="t-sep"></div>
+          <button class="t-btn" onclick="fmt('insertUnorderedList')" title="Bullets"><i class="ti ti-list"></i></button>
+          <button class="t-btn" onclick="fmt('insertOrderedList')" title="Numbers"><i class="ti ti-list-numbers"></i></button>
+          <div class="t-sep"></div>
+          <button class="t-btn" onclick="triggerImgUpload()" title="Insert image"><i class="ti ti-photo"></i></button>
+          <input type="file" id="img-file" accept="image/*" style="display:none" onchange="insertImage(this)">
+          <button class="t-btn" onclick="fmt('removeFormat')" title="Clear formatting"><i class="ti ti-clear-formatting"></i></button>
+        </div>
+        <div id="rte" contenteditable="true" spellcheck="true"></div>
+      </div>
+    </div>
+    <div class="efoot">
+      <div id="ets" class="ets">—</div>
+      <div id="eas" class="eas"></div>
+    </div>
+  </div>
+</div>
+
+<div id="img-panel">
+  <div class="ip-label">Resize image</div>
+  <input type="range" id="img-width-slider" min="10" max="100" value="100" oninput="applyImgWidth(this.value)">
+  <div class="ip-row">
+    <span>Width:</span>
+    <input type="number" id="img-width-num" value="100" min="10" max="100" oninput="applyImgWidth(this.value)">
+    <span>%</span>
+    <button class="ip-close" onclick="closeImgPanel()"><i class="ti ti-x"></i></button>
+  </div>
+</div>
+
+<div class="modal-bg" id="login-modal">
+  <div class="modal-pan">
+    <div class="modal-head">Admin access</div>
+    <div class="modal-sub">Enter your password to access the editor.</div>
+    <input type="password" id="login-pw" class="ef" placeholder="Password…" autocomplete="current-password" style="margin-bottom:0">
+    <div id="login-err"></div>
+    <div class="modal-row" style="margin-top:1.2rem">
+      <button class="mbtn" onclick="closeLogin()">Cancel</button>
+      <button class="mbtn mbtn-acc" onclick="attemptLogin()"><i class="ti ti-lock-open"></i> Enter</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="delmod">
+  <div class="modal-pan">
+    <div class="modal-head">Delete entry?</div>
+    <div class="modal-text">This cannot be undone.</div>
+    <div class="modal-row">
+      <button class="mbtn" onclick="cancelDel()">No, keep it</button>
+      <button class="mbtn mbtn-danger" onclick="confirmDel()">Yes, delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="delcatmod">
+  <div class="modal-pan">
+    <div class="modal-head">Delete category?</div>
+    <div class="modal-text">All entries inside will be deleted permanently.</div>
+    <div class="modal-row">
+      <button class="mbtn" onclick="cancelDelCat()">No, keep it</button>
+      <button class="mbtn mbtn-danger" onclick="confirmDelCat()">Yes, delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="ctxmenu" id="ctxmenu">
+  <div class="ctxitem danger" onclick="openDelCatModal()">Delete category</div>
+</div>
+
+<script>
+// ── FIREBASE ──
+const firebaseConfig = {
+  apiKey: "AIzaSyCKfjJDBM1TRfY8DxROEc2n1BZbcVXOuMk",
+  authDomain: "atria-5a3b6.firebaseapp.com",
+  databaseURL: "https://atria-5a3b6-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "atria-5a3b6",
+  storageBucket: "atria-5a3b6.firebasestorage.app",
+  messagingSenderId: "882830544125",
+  appId: "1:882830544125:web:7af6f384091a4fbd28c294"
+};
+firebase.initializeApp(firebaseConfig);
+const rtdb = firebase.database();
+const dbRef = rtdb.ref('atria');
+
+// ── STATE ──
+let db = {cats:[], entries:[]};
+let openCats={}, curId=null, edId=null, autoT=null, ncOn=false, ctxCatId=null, selectedImg=null, lpTimer=null;
+let isAdmin = sessionStorage.getItem('atria_admin') === '1';
+let dbReady = false;
+
+// ── FIREBASE SYNC ──
+function syncNote(msg){document.getElementById('sync-note').textContent=msg;if(msg!=='\u00a0')setTimeout(()=>document.getElementById('sync-note').textContent='\u00a0',3000)}
+
+// ── AUTH STATE PERSISTENCE ──
+firebase.auth().onAuthStateChanged(user => {
+  if (user) {
+    sessionStorage.setItem('atria_admin', '1');
+    isAdmin = true;
+  } else if (sessionStorage.getItem('atria_admin') === '1') {
+    sessionStorage.removeItem('atria_admin');
+    isAdmin = false;
+  }
+  applyMode();
+});
+
+// Real-time listener
+dbRef.on('value', snapshot => {
+  const raw = snapshot.val();
+  
+  if(raw){
+    db.cats = raw.cats ? Object.values(raw.cats) : [];
+    db.entries = raw.entries ? Object.values(raw.entries) : [];
+  } else {
+    // DB is empty. Do not attempt an unauthenticated write here. 
+    // Just initialize empty state so the UI can load.
+    db.cats = [];
+    db.entries = [];
+  }
+
+  if(!dbReady){
+    dbReady = true;
+    applyMode();
+    if(new URLSearchParams(window.location.search).has('admin') && !isAdmin) openLogin();
+    goList();
+    
+    // Drop the loading screen safely
+    setTimeout(()=>{
+      const ls = document.getElementById('loading-screen');
+      if(ls){
+        ls.classList.add('hidden');
+        setTimeout(()=>ls.style.display='none',400);
+      }
+    },200);
+  } else {
+    // Live update UI if data changes in the background
+    if(document.getElementById('view-list').classList.contains('on')) renderList();
+    if(document.getElementById('view-read').classList.contains('on') && curId){
+      const e=db.entries.find(x=>x.id===curId);
+      if(e) refreshReadView(e); else goList();
+    }
+  }
+}, err => {
+  console.error('Firebase error:', err);
+  syncNote('Connection error');
+});
+
+// ── AUTH ──
+function applyMode(){document.body.classList.toggle('admin',isAdmin)}
+function openLogin(){document.getElementById('login-modal').classList.add('on');document.getElementById('login-pw').value='';document.getElementById('login-err').textContent='';setTimeout(()=>document.getElementById('login-pw').focus(),80)}
+function closeLogin(){document.getElementById('login-modal').classList.remove('on');const u=new URL(window.location.href);u.searchParams.delete('admin');history.replaceState({},'',u)}
+
+function attemptLogin(){
+  const pw = document.getElementById('login-pw').value;
+  if(!pw){document.getElementById('login-err').textContent='Enter your password.';return}
+  
+  firebase.auth().signInWithEmailAndPassword('admin@atria.local', pw)
+    .then(() => {
+      sessionStorage.setItem('atria_admin','1');
+      isAdmin=true;
+      applyMode();
+      document.getElementById('login-modal').classList.remove('on');
+      const u=new URL(window.location.href);u.searchParams.delete('admin');history.replaceState({},'',u);
+      renderList();
+    })
+    .catch((error) => {
+      document.getElementById('login-err').textContent='Incorrect password.';
+      document.getElementById('login-pw').value='';
+      document.getElementById('login-pw').focus();
+    });
+}
+
+function logout(){
+  firebase.auth().signOut().then(() => {
+    sessionStorage.removeItem('atria_admin');
+    isAdmin=false;
+    applyMode();
+    goList();
+  });
+}
+
+// ── UTILS ──
+function ist(){return new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date())+' IST'}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function hlT(t,q){const i=t.toLowerCase().indexOf(q);if(i<0)return esc(t);return esc(t.slice(0,i))+'<mark class="hl">'+esc(t.slice(i,i+q.length))+'</mark>'+esc(t.slice(i+q.length))}
+
+// ── VIEWS ──
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  const el=document.getElementById(id);el.classList.add('on');
+  const a=el.querySelector('.anim');if(a){a.style.animation='none';a.offsetHeight;a.style.animation=''}
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function goList(){clearAT();renderList();showView('view-list')}
+
+function refreshReadView(e){
+  document.getElementById('rt').innerHTML='<div class="et">'+esc(e.title)+'</div>';
+  document.getElementById('rm').innerHTML='<div class="em">'+(e.draft?'DRAFT · ':'')+e.date+(e.updatedDate?' · edited '+e.updatedDate:'')+'</div>';
+  const rb=document.getElementById('rb');
+  if(e.isHtml){rb.innerHTML=e.content||'(No content yet.)'}
+  else{rb.innerHTML='';(e.content||'(No content yet.)').split(/\n\n+/).forEach(p=>{const el=document.createElement('p');el.textContent=p;rb.appendChild(el)})}
+}
+
+function goRead(id){
+  const e=db.entries.find(x=>x.id===id);if(!e)return;
+  curId=id;
+  refreshReadView(e);
+  showView('view-read');
+}
+
+function goEdit(id,catId){
+  if(!isAdmin){openLogin();return}
+  clearAT();edId=id;
+  const sel=document.getElementById('ecsel');sel.innerHTML='';
+  db.cats.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;sel.appendChild(o)});
+  const on=document.createElement('option');on.value='__new__';on.textContent='+ New category…';sel.appendChild(on);
+  document.getElementById('ecnew').style.display='none';
+  const rte=document.getElementById('rte');
+  if(id){
+    const e=db.entries.find(x=>x.id===id);
+    if(e){document.getElementById('esubj').value=e.title;rte.innerHTML=e.isHtml?e.content:(e.content||'').split(/\n\n+/).map(p=>`<p>${esc(p)}</p>`).join('');sel.value=e.catId;document.getElementById('ets').textContent='Created '+e.date;document.getElementById('ehl').textContent='editing entry'}
+  } else {
+    document.getElementById('esubj').value='';rte.innerHTML='';
+    if(catId)sel.value=catId;
+    document.getElementById('ets').textContent='New · '+ist();document.getElementById('ehl').textContent='new entry';
+  }
+  document.getElementById('eas').textContent='';
+  showView('view-edit');
+  setTimeout(()=>document.getElementById('esubj').focus(),80);
+  startAT();
+}
+
+// ── RICH TEXT ──
+function fmt(cmd){document.getElementById('rte').focus();document.execCommand(cmd,false,null)}
+function setFont(val){document.getElementById('rte').focus();document.execCommand('fontName',false,val)}
+function setSize(val){document.getElementById('rte').focus();document.execCommand('fontSize',false,val)}
+function setFgColor(val){document.getElementById('fg-swatch').style.background=val;document.getElementById('rte').focus();document.execCommand('foreColor',false,val)}
+function setBgColor(val){document.getElementById('bg-swatch').style.background=val;document.getElementById('rte').focus();document.execCommand('hiliteColor',false,val)}
+
+function triggerImgUpload(){document.getElementById('img-file').value='';document.getElementById('img-file').click()}
+function insertImage(input){
+  if(!input.files||!input.files[0])return;
+  const file=input.files[0];
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      const MAX=1000;let w=img.width,h=img.height;
+      if(w>MAX){h=Math.round(h*(MAX/w));w=MAX}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl=canvas.toDataURL('image/jpeg',0.78);
+      document.getElementById('rte').focus();
+      document.execCommand('insertHTML',false,`<img src="${dataUrl}" style="width:100%" data-pct="100">`);
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.addEventListener('click',e=>{
+  if(e.target.tagName==='IMG'&&e.target.closest('#rte')){
+    selectedImg=e.target;
+    document.querySelectorAll('#rte img').forEach(i=>i.classList.remove('selected'));
+    e.target.classList.add('selected');
+    const pct=parseInt(e.target.dataset.pct||'100');
+    document.getElementById('img-width-slider').value=pct;
+    document.getElementById('img-width-num').value=pct;
+    const panel=document.getElementById('img-panel');
+    panel.classList.add('on');
+    panel.style.top=Math.min(e.clientY+window.scrollY+12, window.scrollY+window.innerHeight-100)+'px';
+    panel.style.left=Math.min(e.clientX,window.innerWidth-220)+'px';
+  } else if(!e.target.closest('#img-panel')&&!e.target.closest('#rte')){
+    closeImgPanel();
+  }
+});
+function applyImgWidth(val){
+  val=Math.max(10,Math.min(100,parseInt(val)||100));
+  document.getElementById('img-width-slider').value=val;
+  document.getElementById('img-width-num').value=val;
+  if(selectedImg){selectedImg.style.width=val+'%';selectedImg.dataset.pct=val}
+}
+function closeImgPanel(){
+  document.getElementById('img-panel').classList.remove('on');
+  document.querySelectorAll('#rte img').forEach(i=>i.classList.remove('selected'));
+  selectedImg=null;
+}
+
+// ── RENDER ──
+function renderList(){
+  const q=document.getElementById('srch').value.trim().toLowerCase();
+  const cw=document.getElementById('cw');cw.innerHTML='';
+  let shown=0,hits=0;
+  db.cats.forEach(cat=>{
+    const entries=db.entries.filter(e=>{
+      if(e.catId!==cat.id)return false;
+      if(!isAdmin&&e.draft)return false;
+      return !q||e.title.toLowerCase().includes(q);
+    });
+    if(q&&!entries.length)return;
+    if(!isAdmin&&!entries.length)return;
+    hits+=entries.length;shown++;
+    const isOpen=!!openCats[cat.id]||!!q;
+    const block=document.createElement('div');block.className='cb';
+    const np=document.createElement('div');np.className='np';
+    np.innerHTML='<span class="cn">'+esc(cat.name)+'</span><span class="cc">'+entries.length+'</span><i class="ti ti-chevron-right cv '+(isOpen?'op':'')+'" aria-hidden="true"></i>';
+    np.addEventListener('click',()=>toggleCat(cat.id));
+    if(isAdmin){
+      np.addEventListener('contextmenu',e=>{e.preventDefault();showCtx(e,cat.id)});
+      np.addEventListener('touchstart',e=>{lpTimer=setTimeout(()=>showCtxTouch(e.touches[0],cat.id),600)},{passive:true});
+      np.addEventListener('touchend',()=>clearTimeout(lpTimer),{passive:true});
+      np.addEventListener('touchmove',()=>clearTimeout(lpTimer),{passive:true});
+    }
+    block.appendChild(np);
+    const bw=document.createElement('div');bw.className='bw'+(isOpen?' op':'');
+    const bg=document.createElement('div');bg.className='bg';
+    entries.forEach(e=>{
+      const bk=document.createElement('div');bk.className='bk'+(e.draft?' dr':'');
+      bk.innerHTML=(e.draft?'<div class="dtag">Draft</div>':'')+'<div class="bt">'+(q?hlT(e.title,q):esc(e.title))+'</div>';
+      bk.addEventListener('click',()=>goRead(e.id));
+      bg.appendChild(bk);
+    });
+    if(isAdmin){
+      const ba=document.createElement('div');ba.className='ba';
+      ba.innerHTML='<i class="ti ti-plus" style="font-size:14px"></i>Add';
+      ba.addEventListener('click',()=>goEdit(null,cat.id));
+      bg.appendChild(ba);
+    }
+    bw.appendChild(bg);block.appendChild(bw);cw.appendChild(block);
+  });
+  document.getElementById('snote').textContent=q?'  '+hits+' result'+(hits!==1?'s':'')+' matching "'+q+'"':'\u00a0';
+  if(!shown&&!q)cw.innerHTML='<div style="padding:3rem 0;text-align:center;color:var(--i3);font-style:italic;font-size:1.05rem">'+(isAdmin?'No categories yet. Create one to begin.':'Nothing here yet.')+'</div>';
+}
+
+function toggleCat(id){if(document.getElementById('srch').value.trim())return;openCats[id]=!openCats[id];renderList()}
+
+// ── CATEGORY ──
+function toggleNCF(){ncOn=!ncOn;document.getElementById('ncf').classList.toggle('on',ncOn);if(ncOn)document.getElementById('ncin').focus()}
+function closeNCF(){ncOn=false;document.getElementById('ncf').classList.remove('on');document.getElementById('ncin').value=''}
+function confirmNC(){
+  if(!isAdmin)return;
+  const name=document.getElementById('ncin').value.trim();if(!name){alert('Please enter a name.');return}
+  const c={id:'c'+Date.now(),name};
+  rtdb.ref('atria/cats/' + c.id).set(c).then(()=>syncNote('Category created ✓'));
+  openCats[c.id]=true;
+  closeNCF();
+}
+
+// ── ENTRY ──
+function editCur(){if(!isAdmin)return;goEdit(curId,null)}
+function delCur(){if(!isAdmin)return;document.getElementById('delmod').classList.add('on')}
+function cancelDel(){document.getElementById('delmod').classList.remove('on')}
+function confirmDel(){
+  if(!isAdmin||!curId)return;
+  rtdb.ref('atria/entries/' + curId).remove().then(()=>syncNote('Deleted ✓'));
+  document.getElementById('delmod').classList.remove('on');
+  goList();
+}
+function onCC(){document.getElementById('ecnew').style.display=document.getElementById('ecsel').value==='__new__'?'block':'none'}
+function resCat(){
+  const sel=document.getElementById('ecsel');
+  if(sel.value==='__new__'){
+    const name=document.getElementById('ecnew').value.trim();
+    if(!name){alert('Enter a category name.');return null}
+    const c={id:'c'+Date.now(),name};
+    rtdb.ref('atria/cats/' + c.id).set(c); // Atomic creation
+    return c.id;
+  }
+  return sel.value||db.cats[0]?.id;
+}
+function gather(draft){
+  const title=document.getElementById('esubj').value.trim();
+  const content=document.getElementById('rte').innerHTML.trim();
+  if(!title){alert('Please enter a subject.');return null}
+  const catId=resCat();if(!catId){alert('Please select or create a category.');return null}
+  return{title,content,catId,draft,isHtml:true};
+}
+function commit(f){
+  const now=ist();
+  if(edId){
+    rtdb.ref('atria/entries/' + edId).update({
+      title: f.title, content: f.content, catId: f.catId, draft: f.draft, updatedDate: now
+    }).then(()=>syncNote('Saved ✓'));
+  } else {
+    edId='e'+Date.now();
+    rtdb.ref('atria/entries/' + edId).set({
+      id: edId, title: f.title, content: f.content, catId: f.catId, draft: f.draft, isHtml: true, date: now, updatedDate: null
+    }).then(()=>syncNote('Saved ✓'));
+  }
+  if(!openCats[f.catId])openCats[f.catId]=true;
+}
+function publish(){if(!isAdmin)return;const f=gather(false);if(!f)return;commit(f);clearAT();goList()}
+function saveDraft(){if(!isAdmin)return;const f=gather(true);if(!f)return;commit(f);document.getElementById('eas').textContent='Draft saved · '+ist()}
+function closeEd(){
+  if(isAdmin){const c=document.getElementById('rte').innerHTML.trim(),t=document.getElementById('esubj').value.trim();if(t||c)saveDraft()}
+  clearAT();goList();
+}
+function startAT(){
+  autoT=setInterval(()=>{
+    if(!isAdmin)return;
+    const title=document.getElementById('esubj').value.trim(),content=document.getElementById('rte').innerHTML.trim();
+    if(!title&&!content)return;
+    const catId=document.getElementById('ecsel').value;if(!catId||catId==='__new__')return;
+    const now=ist();
+    if(edId){
+      rtdb.ref('atria/entries/' + edId).update({
+        title: title||'(Untitled)', content, draft: true, updatedDate: now
+      }).then(()=>syncNote('Auto-saved ✓'));
+    } else {
+      edId='e'+Date.now();
+      rtdb.ref('atria/entries/' + edId).set({
+        id: edId, title: title||'(Untitled)', content, catId, draft: true, isHtml: true, date: now, updatedDate: null
+      }).then(()=>syncNote('Auto-saved ✓'));
+      if(!openCats[catId])openCats[catId]=true;
+    }
+    document.getElementById('eas').textContent='Auto-saved · '+now;
+  },30000);
+}
+function clearAT(){if(autoT){clearInterval(autoT);autoT=null}}
+
+// ── CONTEXT MENU ──
+function showCtx(e,catId){ctxCatId=catId;const ctx=document.getElementById('ctxmenu');ctx.classList.add('on');ctx.style.left=Math.min(e.clientX,window.innerWidth-190)+'px';ctx.style.top=(e.clientY+window.scrollY)+'px'}
+function showCtxTouch(touch,catId){ctxCatId=catId;const ctx=document.getElementById('ctxmenu');ctx.classList.add('on');ctx.style.left=Math.min(touch.clientX,window.innerWidth-190)+'px';ctx.style.top=(touch.clientY+window.scrollY)+'px'}
+function hideCtx(){document.getElementById('ctxmenu').classList.remove('on')}
+function openDelCatModal(){document.getElementById('ctxmenu').classList.remove('on');document.getElementById('delcatmod').classList.add('on')}
+function cancelDelCat(){document.getElementById('delcatmod').classList.remove('on');ctxCatId=null}
+function confirmDelCat(){
+  if(!isAdmin||!ctxCatId)return;
+  const updates = {};
+  updates['cats/' + ctxCatId] = null;
+  db.entries.filter(e=>e.catId===ctxCatId).forEach(e => {
+    updates['entries/' + e.id] = null;
+  });
+  dbRef.update(updates).then(()=>syncNote('Category deleted ✓'));
+  delete openCats[ctxCatId];
+  document.getElementById('delcatmod').classList.remove('on');
+  ctxCatId=null;
+}
+
+// ── EVENTS ──
+document.getElementById('srch').addEventListener('input',()=>{if(document.getElementById('view-list').classList.contains('on'))renderList()});
+document.getElementById('ncin').addEventListener('keydown',e=>{if(e.key==='Enter')confirmNC()});
+document.getElementById('login-pw').addEventListener('keydown',e=>{if(e.key==='Enter')attemptLogin()});
+document.addEventListener('click',e=>{
+  const ctx=document.getElementById('ctxmenu'),dcm=document.getElementById('delcatmod');
+  if(!ctx.contains(e.target)&&!dcm.contains(e.target))hideCtx();
+});
+</script>
+</body>
+</html>
